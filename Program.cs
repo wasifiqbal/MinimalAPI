@@ -24,34 +24,33 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 
-app.MapGet("/ping", () =>
+app.MapGet("/Info", () =>
 {
-    return "pong";
-});
+    return "This is Demo Minimal API";
+}).WithName("Information").Produces(200);
 
 app.MapPost("/journals", async (JournalDbContext context, JournalEntry entry) =>
 {
     context.JournalEntries.Add(entry);
     await context.SaveChangesAsync();
     return Results.Created($"/journal/{entry.Id}", entry);
-});
+}).Accepts(typeof(JournalEntry), "application/json").Produces(201).WithTags(new[] { "Add", "Journal" }); ;
 
-app.MapGet("/journals", async (JournalDbContext context) =>
-{
-    return await context.JournalEntries.ToListAsync();
-});
+app.MapGet("/journals", async (JournalDbContext context) => await context.JournalEntries.ToListAsync()).Produces(200).WithTags(new[] { "List", "Journal" }); ;
 
 app.MapGet("/journals/{id}", async (JournalDbContext context, int id) =>
 {
-    var entry = await context.JournalEntries.FindAsync(id);
-    if (entry is not null)
-        return Results.Ok(entry);
-    return Results.NotFound();
-});
+    return (await context.JournalEntries.FindAsync(id)) switch
+    {
+        null => Results.NotFound(),
+        JournalEntry entry => Results.Ok(entry)
 
-app.MapPut("/journals/{id}", async (JournalDbContext context, int id, JournalEntry entry) =>
+    };
+}).Produces(200).ProducesProblem(404).WithTags(new[] { "Get", "Journal" }); ;
+
+app.MapPut("/journals", async (JournalDbContext context, JournalEntry entry) =>
 {
-    var journalEntry = await context.JournalEntries.FindAsync(id);
+    var journalEntry = await context.JournalEntries.FindAsync(entry.Id);
     if (journalEntry is not null)
     {
         journalEntry.Title = entry.Title;
@@ -60,7 +59,7 @@ app.MapPut("/journals/{id}", async (JournalDbContext context, int id, JournalEnt
         return Results.NoContent();
     }
     return Results.NotFound();
-});
+}).Accepts<JournalEntry>("application/json").Produces(404).Produces(204).WithTags(new[] { "Update", "Journal" }); ;
 
 app.MapDelete("/journals/{id}", async (JournalDbContext context, int id) =>
 {
@@ -72,7 +71,7 @@ app.MapDelete("/journals/{id}", async (JournalDbContext context, int id) =>
         return Results.NoContent();
     }
     return Results.NotFound();
-});
+}).Produces(204).ProducesProblem(404).WithTags(new[] { "Delete", "Journal" });
 
 app.Run();
 
